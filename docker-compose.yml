@@ -1,0 +1,100 @@
+name: event-driven-microservices-lab
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.3.3
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q Healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.56
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.102.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./infra/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4319:4317"   # host port to avoid collisions
+      - "4320:4318"
+    depends_on:
+      - jaeger
+
+  api-gateway:
+    build: ./services/api-gateway
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - KAFKA_BROKER=redpanda:9092
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redpanda
+      - rabbitmq
+      - otel-collector
+
+  order-service:
+    build: ./services/order-service
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - KAFKA_BROKER=redpanda:9092
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      - redpanda
+      - rabbitmq
+      - otel-collector
+
+  payment-service:
+    build: ./services/payment-service
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - KAFKA_BROKER=redpanda:9092
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      - redpanda
+      - rabbitmq
+      - otel-collector
+
+  shipping-service:
+    build: ./services/shipping-service
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - KAFKA_BROKER=redpanda:9092
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      - redpanda
+      - rabbitmq
+      - otel-collector
