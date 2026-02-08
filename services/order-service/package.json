@@ -2,8 +2,8 @@
   "name": "order-service",
   "private": true,
   "type": "module",
-  "version": "0.1.0",
-  "description": "Order domain service (placeholder) for the lab",
+  "version": "0.2.0",
+  "description": "Order domain service for the lab (creates orders + publishes order.created)",
   "scripts": {
     "start": "node src/index.js"
   },
@@ -12,7 +12,10 @@
     "@opentelemetry/auto-instrumentations-node": "^0.50.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.52.1",
     "@opentelemetry/sdk-node": "^0.52.1",
+    "amqplib": "^0.10.3",
     "express": "^4.19.2",
-    "pino": "^9.0.0"
+    "kafkajs": "^2.2.4",
+    "pino": "^9.0.0",
+    "uuid": "^10.0.0"
   }
 }

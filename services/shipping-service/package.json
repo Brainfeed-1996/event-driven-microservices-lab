@@ -2,8 +2,8 @@
   "name": "shipping-service",
   "private": true,
   "type": "module",
-  "version": "0.1.0",
-  "description": "Consumes payment.authorized and emits shipment.created",
+  "version": "0.2.0",
+  "description": "Consumes payment.authorized and emits shipment.created (Kafka + RabbitMQ)",
   "scripts": {
     "start": "node src/index.js"
   },
@@ -12,6 +12,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.50.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.52.1",
     "@opentelemetry/sdk-node": "^0.52.1",
+    "amqplib": "^0.10.3",
     "kafkajs": "^2.2.4",
     "pino": "^9.0.0"
   }

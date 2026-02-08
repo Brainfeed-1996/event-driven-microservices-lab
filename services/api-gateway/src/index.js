@@ -2,7 +2,6 @@ import express from 'express';
 import pino from 'pino';
 import { Kafka } from 'kafkajs';
 import amqp from 'amqplib';
-import { v4 as uuidv4 } from 'uuid';
 import { startOtel, shutdownOtel } from './otel.js';
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -15,6 +14,7 @@ app.use(express.json());
 
 await startOtel();
 
+// Kept for parity with the lab: gateway still connects to brokers (health, smoke, future use).
 const kafka = new Kafka({ clientId: 'api-gateway', brokers: [kafkaBroker] });
 const producer = kafka.producer();
 await producer.connect();
@@ -25,31 +25,33 @@ await rabbitCh.assertExchange('domain.events', 'topic', { durable: true });
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
-// Creates an order and publishes an event to both Kafka and RabbitMQ so you can compare.
-app.post('/orders', async (req, res) => {
-  const orderId = uuidv4();
-  const payload = {
-    eventType: 'order.created',
-    orderId,
-    amount: req.body?.amount ?? 42,
-    currency: req.body?.currency ?? 'EUR',
-    createdAt: new Date().toISOString()
-  };
+// Creates an order via order-service (which publishes to Kafka + RabbitMQ).
+// This makes the lab more realistic: the gateway delegates domain operations.
+const orderServiceUrl = process.env.ORDER_SERVICE_URL || 'http://order-service:8081';
 
-  await producer.send({
-    topic: 'orders',
-    messages: [{ key: orderId, value: JSON.stringify(payload), headers: { 'x-event-type': 'order.created' } }]
+app.post('/orders', async (req, res) => {
+  // propagate trace context (if any)
+  const traceparent = req.header('traceparent');
+
+  const r = await fetch(`${orderServiceUrl}/orders`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(traceparent ? { traceparent } : {})
+    },
+    body: JSON.stringify({
+      amount: req.body?.amount ?? 42,
+      currency: req.body?.currency ?? 'EUR'
+    })
   });
 
-  rabbitCh.publish(
-    'domain.events',
-    'order.created',
-    Buffer.from(JSON.stringify(payload)),
-    { contentType: 'application/json', messageId: orderId }
-  );
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    log.warn({ status: r.status, body }, 'order-service error');
+    return res.status(502).json({ ok: false, upstreamStatus: r.status, body });
+  }
 
-  log.info({ orderId }, 'order.created published');
-  res.status(201).json({ orderId });
+  return res.status(201).json(body);
 });
 
 const port = process.env.PORT || 8080;
