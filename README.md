@@ -30,6 +30,10 @@ The lab demonstrates two propagation paths:
 1. **HTTP** (W3C `traceparent`) between gateway ↔ services
 2. **Async messaging** where trace context is carried in message headers (Kafka headers / AMQP headers)
 
+## Notebooks
+- `notebooks/01_event_driven_simulation_and_slo.ipynb` — simulation + SLO report (executed outputs saved)
+- `docs/executed/01_event_driven_simulation_and_slo.html`
+
 ## Quick start
 
 ### Prerequisites
