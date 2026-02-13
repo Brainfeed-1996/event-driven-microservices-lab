@@ -1,0 +1,43 @@
+name: Event-Driven Microservices CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check Docker Compose
+      run: |
+        echo "=== Checking Services ==="
+        for service in $(docker compose config --services 2>/dev/null); do
+          echo "✓ Service: $service"
+        done
+    
+    - name: Validate docker-compose.yml
+      run: |
+        docker compose config > /dev/null && echo "✓ docker-compose.yml is valid"
+    
+    - name: Check infrastructure
+      run: |
+        echo "=== Infrastructure Files ==="
+        for file in infra/*; do
+          if [ -f "$file" ]; then
+            echo "✓ Found: $file"
+          fi
+        done
+    
+    - name: Check service definitions
+      run: |
+        echo "=== Service Definitions ==="
+        for dir in services/*/; do
+          if [ -d "$dir" ]; then
+            echo "✓ Found service: $dir"
+          fi
+        done
